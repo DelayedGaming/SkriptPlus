@@ -1,0 +1,8 @@
+name: SkriptPlus
+version: '${project.version}'
+main: me.eren.skriptplus.SkriptPlus
+api-version: 1.19
+author: eren
+website: https://github.com/erenkarakal/SkriptPlus
+depend:
+  - Skript
