@@ -98,7 +98,7 @@ public class SkriptCommand implements TabExecutor {
                         else { dependencies.add(message); }
                     }
                 }
-                sender.sendRichMessage("<gray>==============[ <yellow>Skript<gold> <white>Info <gray>]==============");
+                sender.sendRichMessage("<gray>==============[ <yellow>Skript<gold>+ <white>Info <gray>]==============");
                 sender.sendRichMessage("Skript Version: " + Skript.getVersion());
                 sender.sendRichMessage("Server Version: " + Bukkit.getServer().getVersion());
                 sender.sendRichMessage(""); // newlines look very ugly in console, send an empty message instead
