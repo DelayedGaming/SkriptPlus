@@ -1,8 +1,13 @@
 name: SkriptPlus
 version: '${project.version}'
 main: me.eren.skriptplus.SkriptPlus
-api-version: 1.19
+api-version: 1.13
 author: eren
 website: https://github.com/erenkarakal/SkriptPlus
 depend:
   - Skript
+
+commands:
+  skript:
+    aliases: ["sk"]
+    permission: skriptplus.command
