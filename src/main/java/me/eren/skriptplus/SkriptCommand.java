@@ -13,12 +13,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.http.HttpResponse;
@@ -42,7 +45,6 @@ public class SkriptCommand implements TabExecutor {
                     FileUtils.copyDirectory("./plugins/Skript/scripts", "./plugins/Skript/scripts-backup-" + getCurrentDate());
                     sender.sendRichMessage(SkriptPlus.PREFIX + "Created a backup in <yellow>\"plugins/Skript/scripts-backup-" + getCurrentDate() + "\"");
                 } catch (IOException e) {
-                    sender.sendRichMessage(SkriptPlus.PREFIX + "<red>BAD stuff happened, check console for more info.");
                     throw new RuntimeException("Error while creating a backup of the scripts folder.", e);
                 }
                 break;
@@ -59,7 +61,7 @@ public class SkriptCommand implements TabExecutor {
                     if (properties.containsKey(plugin.toLowerCase())) {
                         try {
                             String repo = properties.getProperty(plugin.toLowerCase());
-                            URL url = new URL("https://api.github.com/repos/" + repo + "/releases/latest");
+                            URL url = new URI("https://api.github.com/repos/" + repo + "/releases/latest").toURL();
                             CompletableFuture<HttpResponse<String>> future = HttpUtils.sendGetRequest(url);
                             future.join();
 
@@ -108,11 +110,69 @@ public class SkriptCommand implements TabExecutor {
                 sender.sendRichMessage("Dependencies [" + dependencies.size() + "]");
                 dependencies.forEach(sender::sendMessage);
                 break;
-        }
 
+            case "addon":
+                if (args.length < 3) {
+                    sender.sendRichMessage(SkriptPlus.PREFIX + "Please enter an addon name.");
+                    break;
+                }
+                if (args[1].equals("download")) {
+                    if (Bukkit.getPluginManager().isPluginEnabled(args[2])) {
+                        sender.sendRichMessage(SkriptPlus.PREFIX + "This addon is already installed.");
+                        break;
+                    }
+                    if (!SkriptPlus.getAddonProperties().containsKey(args[2].toLowerCase())) {
+                        sender.sendRichMessage(SkriptPlus.PREFIX + "Couldn't find an addon with that name.");
+                        break;
+                    }
+                    sender.sendRichMessage(SkriptPlus.PREFIX + "Downloading...");
+                    try {
+                        URL url = new URI("https://api.github.com/repos/" + SkriptPlus.getAddonProperties().getProperty(args[2].toLowerCase()) + "/releases/latest").toURL();
+                        CompletableFuture<HttpResponse<String>> future = HttpUtils.sendGetRequest(url);
+                        future.join();
+
+                        future.thenAccept(response -> {
+                            if (response.statusCode() != 200) {
+                                throw new RuntimeException("Got code " + response.statusCode() + " while trying to get the version of " + args[2] + ".");
+                            }
+                        });
+
+                        future.exceptionally(ex -> {
+                            throw new RuntimeException("Error while getting the version of " + args[2] + ".", ex);
+                        });
+
+                        future.thenApply(HttpResponse::body).thenAccept(stringResponse -> {
+                            JsonObject response = HttpUtils.parseResponse(stringResponse);
+                            String name = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("name").getAsString();
+                            String link = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
+                            try {
+                                FileUtils.downloadFile(new URI(link).toURL(), new File("./plugins/" + name));
+                            } catch (MalformedURLException | URISyntaxException e) {
+                                throw new RuntimeException("Error while downloading an addon.", e);
+                            }
+                        });
+                    } catch (URISyntaxException | MalformedURLException e) {
+                        throw new RuntimeException("Error while downloading an addon.", e);
+                    }
+                } else if (args[1].equals("delete")) {
+                    if (!Bukkit.getPluginManager().isPluginEnabled(args[2])) {
+                        sender.sendRichMessage(SkriptPlus.PREFIX + "This addon doesn't exist.");
+                        break;
+                    }
+                    try {
+                        File plugin = FileUtils.getFileOfPlugin(Bukkit.getPluginManager().getPlugin(args[2]));
+                        plugin.delete();
+                    } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                        throw new RuntimeException("Error while deleting an addon.", e);
+                    }
+                    sender.sendRichMessage(SkriptPlus.PREFIX + "Deleted " + args[2] + ".");
+                }
+                break;
+        }
         return true;
     }
 
+    // used in backup-scripts command
     private String getCurrentDate() {
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy---HH:mm");
         Date currentDate = new Date();
