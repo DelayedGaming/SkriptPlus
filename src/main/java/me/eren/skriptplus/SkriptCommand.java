@@ -1,19 +1,17 @@
 package me.eren.skriptplus;
 
 import ch.njol.skript.Skript;
-import ch.njol.skript.SkriptAddon;
-import ch.njol.skript.util.Version;
 import com.google.gson.JsonObject;
 import me.eren.skriptplus.utils.FileUtils;
 import me.eren.skriptplus.utils.HttpUtils;
 import me.eren.skriptplus.utils.SkriptUtils;
+import me.eren.skriptplus.utils.Version;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
-import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,6 +26,7 @@ import java.net.http.HttpResponse;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SkriptCommand implements TabExecutor {
 
@@ -58,6 +57,7 @@ public class SkriptCommand implements TabExecutor {
                 plugins.addAll(SkriptUtils.getEnabledAddons());
 
                 for (String plugin : plugins) {
+                    Version currentVer = new Version(Bukkit.getPluginManager().getPlugin(plugin).getDescription().getVersion());
                     if (properties.containsKey(plugin.toLowerCase())) {
                         try {
                             String repo = properties.getProperty(plugin.toLowerCase());
@@ -71,16 +71,21 @@ public class SkriptCommand implements TabExecutor {
                                 }
                             });
 
-                            future.exceptionally(ex -> {
-                                throw new RuntimeException("Error while getting the version of " + plugin + ".", ex);
+                            future.exceptionally(e -> {
+                                throw new RuntimeException("Error while getting the version of " + plugin + ".", e);
                             });
 
                             future.thenApply(HttpResponse::body).thenAccept(stringResponse -> {
                                 JsonObject response = HttpUtils.parseResponse(stringResponse);
 
-                                Version latestVer = new Version(response.get("tag_name").getAsString());
-                                Version currentVer = new Version(Bukkit.getPluginManager().getPlugin(plugin).getDescription().getVersion());
+                                if (!response.has("tag_name")) { // version is unknown
+                                    Component message = MiniMessage.miniMessage().deserialize("<gray>[<gold>⬤<gray>] <white>" + plugin + " <gray>(" + currentVer + ")");
+                                    if (Skript.getAddon(plugin) != null) { addons.add(message); }
+                                    else { dependencies.add(message); }
+                                    return;
+                                }
 
+                                Version latestVer = new Version(response.get("tag_name").getAsString());
                                 if (latestVer.isLargerThan(currentVer)) { // version is outdated
                                     Component message = MiniMessage.miniMessage().deserialize("<gray>[<red>⬤<gray>] <white>" + plugin + " <gray>(" + currentVer + " -> " + latestVer + ")");
                                     if (Skript.getAddon(plugin) != null) { addons.add(message); }
@@ -95,14 +100,27 @@ public class SkriptCommand implements TabExecutor {
                             throw new RuntimeException("Error while getting the version of " + plugin + ".", e);
                         }
                     } else { // version is unknown
-                        Component message = MiniMessage.miniMessage().deserialize("<gray>[<gold>⬤<gray>] <white>" + plugin + " <gray>(" + plugin + ")");
+                        Component message = MiniMessage.miniMessage().deserialize("<gray>[<gold>⬤<gray>] <white>" + plugin + " <gray>(" + currentVer + ")");
                         if (Skript.getAddon(plugin) != null) { addons.add(message); }
                         else { dependencies.add(message); }
                     }
                 }
-                sender.sendRichMessage("<gray>==============[ <yellow>Skript<gold>+ <white>Info <gray>]==============");
-                sender.sendRichMessage("Skript Version: " + Skript.getVersion());
-                sender.sendRichMessage("Server Version: " + Bukkit.getServer().getVersion());
+                AtomicReference<String> skVerColor = new AtomicReference<>();
+                try {
+                    URL url = new URI("https://api.github.com/repos/SkriptLang/Skript/releases/latest").toURL();
+                    CompletableFuture<HttpResponse<String>> future = HttpUtils.sendGetRequest(url);
+                    future.join();
+
+                    future.thenApply(HttpResponse::body).thenAccept(stringResponse -> {
+                       JsonObject response = HttpUtils.parseResponse(stringResponse);
+                       Version latestVer = new Version(response.get("tag_name").getAsString());
+                       Version currentVer = new Version(Skript.getVersion().toString());
+                       skVerColor.set(latestVer.isLargerThan(currentVer) ? "<red>" : "<green>");
+                    });
+                } catch (URISyntaxException | MalformedURLException ignored) {}
+                sender.sendRichMessage("<gray>==============[ <gold>Skript<yellow>+ <white>Info <gray>]==============");
+                sender.sendRichMessage("Skript Version: " + skVerColor + Skript.getVersion());
+                sender.sendRichMessage("Server Version: <yellow>" + Bukkit.getServer().getVersion());
                 sender.sendRichMessage(""); // newlines look very ugly in console, send an empty message instead
                 sender.sendRichMessage("Addons [" + addons.size() + "]");
                 addons.forEach(sender::sendMessage);
@@ -116,10 +134,27 @@ public class SkriptCommand implements TabExecutor {
                     sender.sendRichMessage(SkriptPlus.PREFIX + "Please enter an addon name.");
                     break;
                 }
-                if (args[1].equals("download")) {
-                    if (Bukkit.getPluginManager().isPluginEnabled(args[2])) {
-                        sender.sendRichMessage(SkriptPlus.PREFIX + "This addon is already installed.");
+                if (args[1].equals("delete") || args[1].equals("update")) {
+                    if (!Bukkit.getPluginManager().isPluginEnabled(args[2])) {
+                        sender.sendRichMessage(SkriptPlus.PREFIX + "This addon doesn't exist.");
                         break;
+                    }
+                    try {
+                        File plugin = FileUtils.getFileOfPlugin(Bukkit.getPluginManager().getPlugin(args[2]));
+                        plugin.delete();
+                    } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                        throw new RuntimeException("Error while deleting an addon.", e);
+                    }
+                    sender.sendRichMessage(SkriptPlus.PREFIX + "Deleted <yellow>" + args[2] + "<white>.");
+                }
+                if (args[1].equals("download") || args[1].equals("update")) {
+                    try {
+                        if (FileUtils.getFileOfPlugin(Bukkit.getPluginManager().getPlugin(args[2])).exists()) {
+                            sender.sendRichMessage(SkriptPlus.PREFIX + "This addon is already installed.");
+                            break;
+                        }
+                    } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                        throw new RuntimeException("Error while updating an addon.", e);
                     }
                     if (!SkriptPlus.getAddonProperties().containsKey(args[2].toLowerCase())) {
                         sender.sendRichMessage(SkriptPlus.PREFIX + "Couldn't find an addon with that name.");
@@ -147,6 +182,7 @@ public class SkriptCommand implements TabExecutor {
                             String link = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
                             try {
                                 FileUtils.downloadFile(new URI(link).toURL(), new File("./plugins/" + name));
+                                sender.sendRichMessage(SkriptPlus.PREFIX + "Downloaded <yellow>" + args[2] + "<white>. Please restart your server.");
                             } catch (MalformedURLException | URISyntaxException e) {
                                 throw new RuntimeException("Error while downloading an addon.", e);
                             }
@@ -154,18 +190,6 @@ public class SkriptCommand implements TabExecutor {
                     } catch (URISyntaxException | MalformedURLException e) {
                         throw new RuntimeException("Error while downloading an addon.", e);
                     }
-                } else if (args[1].equals("delete")) {
-                    if (!Bukkit.getPluginManager().isPluginEnabled(args[2])) {
-                        sender.sendRichMessage(SkriptPlus.PREFIX + "This addon doesn't exist.");
-                        break;
-                    }
-                    try {
-                        File plugin = FileUtils.getFileOfPlugin(Bukkit.getPluginManager().getPlugin(args[2]));
-                        plugin.delete();
-                    } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                        throw new RuntimeException("Error while deleting an addon.", e);
-                    }
-                    sender.sendRichMessage(SkriptPlus.PREFIX + "Deleted " + args[2] + ".");
                 }
                 break;
         }

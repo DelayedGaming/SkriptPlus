@@ -21,7 +21,7 @@ public final class SkriptPlus extends JavaPlugin {
         getLogger().info("Enabled SkriptPlus v" + getDescription().getVersion());
         Skript.registerAddon(this);
 
-        this.getCommand("skript").setExecutor(new SkriptCommand());
+        this.getCommand("skriptplus").setExecutor(new SkriptCommand());
 
         if (!getDataFolder().exists() && !getDataFolder().mkdir())
             throw new RuntimeException("Data directory doesn't exist and can't be created.");

@@ -8,6 +8,6 @@ depend:
   - Skript
 
 commands:
-  skript:
-    aliases: ["sk"]
+  skriptplus:
+    aliases: ["skp"]
     permission: skriptplus.command
