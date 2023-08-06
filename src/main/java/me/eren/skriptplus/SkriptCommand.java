@@ -34,7 +34,7 @@ public class SkriptCommand implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendRichMessage("help message");
+            send(sender, "help message");
             return true;
         }
 
@@ -42,11 +42,11 @@ public class SkriptCommand implements TabExecutor {
 
             case "backup-scripts":
                 FileUtils.copyDirectory("./plugins/Skript/scripts", "./plugins/Skript/scripts-backup-" + getCurrentDate());
-                sender.sendRichMessage(SkriptPlus.PREFIX + "Created a backup in <yellow>\"plugins/Skript/scripts-backup-" + getCurrentDate() + "\"");
+                send(sender, "Created a backup in <yellow>\"plugins/Skript/scripts-backup-" + getCurrentDate() + "\"", true);
                 break;
 
             case "info":
-                sender.sendRichMessage(SkriptPlus.PREFIX + "Please wait...");
+                send(sender, "Please wait...", true);
                 Properties properties = SkriptPlus.getAddonProperties();
                 List<Component> addons = new ArrayList<>();
                 List<Component> dependencies = new ArrayList<>();
@@ -113,41 +113,41 @@ public class SkriptCommand implements TabExecutor {
                        skVerColor.set(latestVer.isLargerThan(currentVer) ? "<red>" : "<green>");
                     });
                 } catch (URISyntaxException | MalformedURLException ignored) {}
-                sender.sendRichMessage("<gray>==============[ <gold>Skript<yellow>+ <white>Info <gray>]==============");
-                sender.sendRichMessage("Skript Version: " + skVerColor + Skript.getVersion());
-                sender.sendRichMessage("Server Version: <yellow>" + Bukkit.getServer().getVersion());
-                sender.sendRichMessage(""); // newlines look very ugly in console, send an empty message instead
-                sender.sendRichMessage("Addons [" + addons.size() + "]");
+                send(sender, "<gray>==============[ <gold>Skript<yellow>+ <white>Info <gray>]==============");
+                send(sender, "Skript Version: " + skVerColor + Skript.getVersion());
+                send(sender, "Server Version: <yellow>" + Bukkit.getServer().getVersion());
+                send(sender, ""); // newlines look very ugly in console, send an empty message instead
+                send(sender, "Addons [" + addons.size() + "]");
                 addons.forEach(sender::sendMessage);
-                sender.sendRichMessage("");
-                sender.sendRichMessage("Dependencies [" + dependencies.size() + "]");
+                send(sender, "");
+                send(sender, "Dependencies [" + dependencies.size() + "]");
                 dependencies.forEach(sender::sendMessage);
                 break;
 
             case "addon":
                 if (args.length < 3) {
-                    sender.sendRichMessage(SkriptPlus.PREFIX + "Please enter an addon name.");
+                    send(sender, "Please enter an addon name.", true);
                     break;
                 }
                 if (args[1].equals("delete") || args[1].equals("update")) {
                     if (!Bukkit.getPluginManager().isPluginEnabled(args[2])) {
-                        sender.sendRichMessage(SkriptPlus.PREFIX + "This addon doesn't exist.");
+                        send(sender, "This addon doesn't exist.", true);
                         break;
                     }
                     File plugin = FileUtils.getFileOfPlugin(Bukkit.getPluginManager().getPlugin(args[2]));
                     plugin.delete();
-                    sender.sendRichMessage(SkriptPlus.PREFIX + "Deleted <yellow>" + args[2] + "<white>.");
+                    send(sender, "Deleted <yellow>" + args[2] + "<white>.", true);
                 }
                 if (args[1].equals("download") || args[1].equals("update")) {
                     if (FileUtils.getFileOfPlugin(Bukkit.getPluginManager().getPlugin(args[2])).exists()) {
-                        sender.sendRichMessage(SkriptPlus.PREFIX + "This addon is already installed.");
+                        send(sender, "This addon is already installed.", true);
                         break;
                     }
                     if (!SkriptPlus.getAddonProperties().containsKey(args[2].toLowerCase())) {
-                        sender.sendRichMessage(SkriptPlus.PREFIX + "Couldn't find an addon with that name.");
+                        send(sender, "Couldn't find an addon with that name.", true);
                         break;
                     }
-                    sender.sendRichMessage(SkriptPlus.PREFIX + "Downloading...");
+                    send(sender, "Downloading...", true);
                     try {
                         String repo = SkriptPlus.getAddonProperties().getProperty(args[2].toLowerCase());
                         URL url = new URI(String.format(GITHUB_API, repo)).toURL();
@@ -168,7 +168,7 @@ public class SkriptCommand implements TabExecutor {
                             String link = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
                             try {
                                 FileUtils.downloadFile(new URI(link).toURL(), new File("./plugins/" + name));
-                                sender.sendRichMessage(SkriptPlus.PREFIX + "Downloaded <yellow>" + args[2] + "<white>. Please restart your server.");
+                                send(sender, "Downloaded <yellow>" + args[2] + "<white>. Please restart your server.", true);
                             } catch (MalformedURLException | URISyntaxException e) {
                                 throw new RuntimeException("Error while downloading an addon.", e);
                             }
@@ -186,6 +186,16 @@ public class SkriptCommand implements TabExecutor {
     private String getCurrentDate() {
         Date currentDate = new Date();
         return DATE_FORMAT.format(currentDate);
+    }
+
+    private void send(CommandSender sender, String message) {
+        send(sender, message, false);
+    }
+    private void send(CommandSender sender, String message, Boolean showPrefix) {
+        if (showPrefix) {
+            message = SkriptPlus.PREFIX + message;
+        }
+        sender.sendMessage(MiniMessage.miniMessage().deserialize(message));
     }
 
     @Override
