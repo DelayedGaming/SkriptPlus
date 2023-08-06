@@ -7,6 +7,7 @@ import org.bukkit.Bukkit;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SkriptUtils {
     public static long getParseTime(String statement) {
@@ -27,12 +28,8 @@ public class SkriptUtils {
     }
 
     public static List<String> getEnabledAddons() {
-        List<String> addons = new ArrayList<>();
-        for(SkriptAddon addon : Skript.getAddons()) {
-            addons.add(addon.getName());
-        }
-        return addons;
+        return Skript.getAddons().stream()
+                .map(SkriptAddon::getName)
+                .collect(Collectors.toList());
     }
-
-
 }

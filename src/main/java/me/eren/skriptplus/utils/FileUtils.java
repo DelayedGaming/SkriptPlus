@@ -23,22 +23,30 @@ public class FileUtils {
         }
     }
 
-    public static File getFileOfPlugin(Plugin plugin) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        Method method = (JavaPlugin.class).getDeclaredMethod("getFile");
-        method.setAccessible(true);
-        return (File) method.invoke(plugin);
+    public static File getFileOfPlugin(Plugin plugin) {
+        try {
+            Method method = (JavaPlugin.class).getDeclaredMethod("getFile");
+            method.setAccessible(true);
+            return (File) method.invoke(plugin);
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+            throw new RuntimeException("Error while getting the file of a plugin.", e);
+        }
     }
 
-    public static void copyDirectory(String sourceDirectoryLocation, String destinationDirectoryLocation) throws IOException {
-        Files.walk(Paths.get(sourceDirectoryLocation))
-            .forEach(source -> {
-                Path destination = Paths.get(destinationDirectoryLocation, source.toString()
-                                                                        .substring(sourceDirectoryLocation.length()));
-                try {
-                    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
+    public static void copyDirectory(String sourceDirectoryLocation, String destinationDirectoryLocation) {
+        try {
+            Files.walk(Paths.get(sourceDirectoryLocation))
+                .forEach(source -> {
+                    Path destination = Paths.get(destinationDirectoryLocation, source.toString()
+                                                                            .substring(sourceDirectoryLocation.length()));
+                    try {
+                        Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+        } catch (IOException e) {
+            throw new RuntimeException("Error while copying a directory.", e);
+        }
     }
 }

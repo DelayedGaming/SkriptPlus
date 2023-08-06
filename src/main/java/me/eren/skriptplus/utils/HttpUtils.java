@@ -12,14 +12,19 @@ import java.util.concurrent.CompletableFuture;
 
 public class HttpUtils {
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
+    private static final Gson GSON = new Gson();
 
-    public static CompletableFuture<HttpResponse<String>> sendGetRequest(URL url) throws URISyntaxException {
-        final HttpRequest request = HttpRequest.newBuilder(url.toURI()).build();
+    public static CompletableFuture<HttpResponse<String>> sendGetRequest(URL url) {
+        final HttpRequest request;
+        try {
+            request = HttpRequest.newBuilder(url.toURI()).build();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("Error while sending a get request.", e);
+        }
         return CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString());
     }
 
     public static JsonObject parseResponse(String response) {
-        Gson gson = new Gson();
-        return gson.fromJson(response, JsonObject.class);
+        return GSON.fromJson(response, JsonObject.class);
     }
 }
