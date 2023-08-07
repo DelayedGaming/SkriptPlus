@@ -41,7 +41,8 @@ public class SkriptCommand implements TabExecutor {
         switch (args[0]) {
 
             case "backup-scripts":
-                FileUtils.copyDirectory("./plugins/Skript/scripts", "./plugins/Skript/scripts-backup-" + getCurrentDate());
+                FileUtils.copyDirectory(SkriptPlus.getInstance().getDataFolder() + "/Skript/scripts",
+                        SkriptPlus.getInstance().getDataFolder() + "/Skript/scripts-backup-" + getCurrentDate());
                 send(sender, "Created a backup in <yellow>\"plugins/Skript/scripts-backup-" + getCurrentDate() + "\"", true);
                 break;
 
@@ -167,7 +168,7 @@ public class SkriptCommand implements TabExecutor {
                             String name = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("name").getAsString();
                             String link = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
                             try {
-                                FileUtils.downloadFile(new URI(link).toURL(), new File("./plugins/" + name));
+                                FileUtils.downloadFile(new URI(link).toURL(), new File(SkriptPlus.getInstance().getDataFolder() + "/" + name));
                                 send(sender, "Downloaded <yellow>" + args[2] + "<white>. Please restart your server.", true);
                             } catch (MalformedURLException | URISyntaxException e) {
                                 throw new RuntimeException("Error while downloading an addon.", e);
