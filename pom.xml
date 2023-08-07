@@ -85,5 +85,10 @@
             <version>2.7.0-beta2</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-platform-bukkit</artifactId>
+            <version>4.3.0</version>
+        </dependency>
     </dependencies>
 </project>
