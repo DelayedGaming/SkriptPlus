@@ -12,7 +12,7 @@ import java.util.Properties;
 
 public final class SkriptPlus extends JavaPlugin {
     private static SkriptPlus INSTANCE;
-    private static Properties addonProperties;
+    private static Properties addonProperties = getAddonProperties();
     public static final String PREFIX = "<white>[<gold>Skript<yellow>+<white>] ";
 
     @Override
@@ -46,18 +46,16 @@ public final class SkriptPlus extends JavaPlugin {
     }
 
     public static Properties getAddonProperties() {
-        if (addonProperties == null) {
-            try {
-                Properties properties = new Properties();
-                File file = new File("./plugins/SkriptPlus/addon.properties");
-                FileInputStream stream = new FileInputStream(file);
-                properties.load(stream);
-                stream.close();
-                addonProperties = properties;
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to load addon.properties file.", e);
-            }
+        if (addonProperties != null) {
+            return addonProperties;
         }
-        return addonProperties;
+        Properties properties = new Properties();
+        File file = new File(SkriptPlus.getInstance().getDataFolder(), "/SkriptPlus/addon.properties");
+        try (FileInputStream stream = new FileInputStream(file)) {
+            properties.load(stream);
+            return properties;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load addon.properties file.", e);
+        }
     }
 }
