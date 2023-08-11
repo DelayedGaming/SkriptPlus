@@ -12,6 +12,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,6 +40,10 @@ public class SkriptCommand implements TabExecutor {
         }
 
         switch (args[0]) {
+
+            case "logs":
+                HttpUtils.uploadLogs((Player) sender,"hello world");
+                break;
 
             case "backup-scripts":
                 FileUtils.copyDirectory(SkriptPlus.getInstance().getDataFolder() + "/Skript/scripts",
