@@ -2,7 +2,7 @@ name: SkriptPlus
 version: '${project.version}'
 main: me.eren.skriptplus.SkriptPlus
 api-version: 1.13
-author: eren
+authors: ['eren', 'ploxxy']
 website: https://github.com/erenkarakal/SkriptPlus
 depend:
   - Skript
