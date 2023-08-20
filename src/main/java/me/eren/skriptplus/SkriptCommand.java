@@ -16,19 +16,22 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.IOException;
+import java.net.*;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 public class SkriptCommand implements TabExecutor {
     private final String GITHUB_API = "https://api.github.com/repos/%s/releases/latest";
+    private final String HASTEBIN_API = "https://ptero.co/%s";
     private final DateFormat DATE_FORMAT = new SimpleDateFormat("dd-MM-yyyy---HH:mm");
 
     @Override
@@ -41,8 +44,7 @@ public class SkriptCommand implements TabExecutor {
         switch (args[0]) {
 
             case "backup-scripts":
-                FileUtils.copyDirectory(SkriptPlus.getInstance().getDataFolder() + "/Skript/scripts",
-                        SkriptPlus.getInstance().getDataFolder() + "/Skript/scripts-backup-" + getCurrentDate());
+                FileUtils.copyDirectory("./plugins/Skript/scripts", ".plugins/Skript/scripts-backup-" + getCurrentDate());
                 send(sender, "Created a backup in <yellow>\"plugins/Skript/scripts-backup-" + getCurrentDate() + "\"", true);
                 break;
 
@@ -179,6 +181,52 @@ public class SkriptCommand implements TabExecutor {
                     }
                 }
                 break;
+
+            case "analyse":
+                if (args.length < 2) {
+                    send(sender, "Please enter a script name.", true);
+                    break;
+                }
+                final File script = new File("./plugins/Skript/scripts/", args[1]);
+                if (!script.exists()) {
+                    send(sender, "This script doesn't exist.", true);
+                    break;
+                }
+
+                final Pattern regex = Pattern.compile("^\\s*(?:#.*)?$"); // checks if a line is empty or is a comment
+                List<String> lines = new ArrayList<>();
+                lines.add("Analysed by SkriptPlus.\n\n");
+                try {
+                    AtomicLong totalParseTime = new AtomicLong();
+                    Files.readAllLines(Paths.get(script.getPath())).forEach(line -> {
+                        if (regex.matcher(line).matches()) {
+                            lines.add(line);
+                            return;
+                        }
+                        long parseTime = SkriptUtils.getParseTime(line);
+                        totalParseTime.addAndGet(parseTime);
+                        lines.add("(" + parseTime + "ms) " + line);
+                    });
+                    String data = String.join("\n", lines);
+                    CompletableFuture<HttpResponse<String>> future = HttpUtils.sendPostRequest(new URI(String.format(HASTEBIN_API, "documents")).toURL(), data);
+                    future.join();
+
+                    future.exceptionally(ex -> {
+                        throw new RuntimeException("Error while analysing a script.", ex);
+                    })
+
+                    .thenAccept(request -> {
+                        if (request.statusCode() != 200) {
+                            throw new RuntimeException("Got code " + request.statusCode() + " while trying to analyse a script.");
+                        }
+                        JsonObject response = HttpUtils.parseResponse(request.body());
+                        String key = response.get("key").getAsString();
+                        send(sender, "Analysed in <yellow>" + totalParseTime + "ms<white>. Click <underlined><yellow><click:open_url:" + String.format(HASTEBIN_API, key) + ">here<reset> to see the results.", true);
+                    });
+
+                } catch (IOException | URISyntaxException e) {
+                    throw new RuntimeException("Error while analysing a script.", e);
+                }
         }
         return true;
     }

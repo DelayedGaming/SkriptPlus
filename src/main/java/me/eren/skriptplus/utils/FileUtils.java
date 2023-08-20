@@ -35,16 +35,15 @@ public class FileUtils {
 
     public static void copyDirectory(String sourceDirectoryLocation, String destinationDirectoryLocation) {
         try {
-            Files.walk(Paths.get(sourceDirectoryLocation))
-                .forEach(source -> {
-                    Path destination = Paths.get(destinationDirectoryLocation, source.toString()
-                                                                            .substring(sourceDirectoryLocation.length()));
-                    try {
-                        Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
+            Files.walk(Paths.get(sourceDirectoryLocation)).forEach(source -> {
+                Path destination = Paths.get(destinationDirectoryLocation, source.toString()
+                                                                        .substring(sourceDirectoryLocation.length()));
+                try {
+                    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
         } catch (IOException e) {
             throw new RuntimeException("Error while copying a directory.", e);
         }

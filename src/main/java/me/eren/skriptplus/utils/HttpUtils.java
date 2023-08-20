@@ -17,9 +17,24 @@ public class HttpUtils {
     public static CompletableFuture<HttpResponse<String>> sendGetRequest(URL url) {
         final HttpRequest request;
         try {
-            request = HttpRequest.newBuilder(url.toURI()).build();
+            request = HttpRequest.newBuilder()
+                    .uri(url.toURI())
+                    .build();
         } catch (URISyntaxException e) {
             throw new RuntimeException("Error while sending a get request.", e);
+        }
+        return CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    public static CompletableFuture<HttpResponse<String>> sendPostRequest(URL url, String data) {
+        final HttpRequest request;
+        try {
+            request = HttpRequest.newBuilder()
+                    .uri(url.toURI())
+                    .POST(HttpRequest.BodyPublishers.ofString(data))
+                    .build();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("Error while sending a post request.", e);
         }
         return CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString());
     }
