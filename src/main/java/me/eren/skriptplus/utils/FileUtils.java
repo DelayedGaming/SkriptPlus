@@ -12,6 +12,7 @@ import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.*;
+import java.util.List;
 
 public class FileUtils {
     public static void downloadFile(URL url, File file) {
@@ -47,5 +48,16 @@ public class FileUtils {
         } catch (IOException e) {
             throw new RuntimeException("Error while copying a directory.", e);
         }
+    }
+
+    public static List<String> getFileTree(String sourceDirectoryLocation) {
+        try {
+            Files.walk(Paths.get(sourceDirectoryLocation)).forEach(file -> {
+                System.out.println(file.getFileName());
+            });
+        } catch (IOException e) {
+            throw new RuntimeException("Error while getting a file tree.", e);
+        }
+        return null;
     }
 }

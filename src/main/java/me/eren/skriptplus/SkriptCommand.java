@@ -1,6 +1,8 @@
 package me.eren.skriptplus;
 
+import ch.njol.skript.ScriptLoader;
 import ch.njol.skript.Skript;
+import ch.njol.util.OpenCloseable;
 import com.google.gson.JsonObject;
 import me.eren.skriptplus.utils.FileUtils;
 import me.eren.skriptplus.utils.HttpUtils;
@@ -14,6 +16,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.skriptlang.skript.lang.script.Script;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,28 +43,30 @@ public class SkriptCommand implements TabExecutor {
             send(sender, "help message");
             return true;
         }
+        File script;
 
-        switch (args[0]) {
-
-            case "backup-scripts":
+        switch (args[0].toLowerCase()) {
+            case "backup-scripts" -> {
                 FileUtils.copyDirectory("./plugins/Skript/scripts", ".plugins/Skript/scripts-backup-" + getCurrentDate());
                 send(sender, "Created a backup in <yellow>\"plugins/Skript/scripts-backup-" + getCurrentDate() + "\"", true);
-                break;
+            }
 
-            case "info":
+            case "info" -> {
                 send(sender, "Please wait...", true);
                 Properties properties = SkriptPlus.getAddonProperties();
                 List<Component> addons = new ArrayList<>();
                 List<Component> dependencies = new ArrayList<>();
                 List<String> plugins = SkriptUtils.getEnabledDependencies();
                 plugins.addAll(SkriptUtils.getEnabledAddons());
-
                 for (String plugin : plugins) {
                     Version currentVer = new Version(Bukkit.getPluginManager().getPlugin(plugin).getDescription().getVersion());
                     if (!properties.containsKey(plugin.toLowerCase())) { // version is unknown
                         Component message = MiniMessage.miniMessage().deserialize("<gray>[<gold>⬤<gray>] <white>" + plugin + " <gray>(" + currentVer + ")");
-                        if (Skript.getAddon(plugin) != null) { addons.add(message); }
-                        else { dependencies.add(message); }
+                        if (Skript.getAddon(plugin) != null)
+                            addons.add(message);
+                        else
+                            dependencies.add(message);
+
                         continue;
                     }
                     try {
@@ -75,28 +80,35 @@ public class SkriptCommand implements TabExecutor {
                         });
 
                         future.thenAccept(request -> {
-                            if (request.statusCode() != 200) {
+                            if (request.statusCode() != 200)
                                 throw new RuntimeException("Got code " + request.statusCode() + " while trying to get the latest version of " + args[2] + ".");
-                            }
+
                             String stringResponse = request.body();
                             JsonObject response = HttpUtils.parseResponse(stringResponse);
 
                             if (!response.has("tag_name")) { // version is unknown
                                 Component message = MiniMessage.miniMessage().deserialize("<gray>[<gold>⬤<gray>] <white>" + plugin + " <gray>(" + currentVer + ")");
-                                if (Skript.getAddon(plugin) != null) { addons.add(message); }
-                                else { dependencies.add(message); }
+                                if (Skript.getAddon(plugin) != null)
+                                    addons.add(message);
+                                else
+                                    dependencies.add(message);
                                 return;
                             }
 
                             Version latestVer = new Version(response.get("tag_name").getAsString());
                             if (latestVer.isLargerThan(currentVer)) { // version is outdated
                                 Component message = MiniMessage.miniMessage().deserialize("<gray>[<red>⬤<gray>] <white>" + plugin + " <gray>(" + currentVer + " -> " + latestVer + ")");
-                                if (Skript.getAddon(plugin) != null) { addons.add(message); }
-                                else { dependencies.add(message); }
+                                if (Skript.getAddon(plugin) != null)
+                                    addons.add(message);
+                                else
+                                    dependencies.add(message);
                             } else { // version is up-to-date
                                 Component message = MiniMessage.miniMessage().deserialize("<gray>[<green>⬤<gray>] <white>" + plugin + " <gray>(" + currentVer + ")");
-                                if (Skript.getAddon(plugin) != null) { addons.add(message); }
-                                else { dependencies.add(message); }
+                                if (Skript.getAddon(plugin) != null) {
+                                    addons.add(message);
+                                } else {
+                                    dependencies.add(message);
+                                }
                             }
                         });
                     } catch (URISyntaxException | MalformedURLException e) {
@@ -110,12 +122,13 @@ public class SkriptCommand implements TabExecutor {
                     future.join();
 
                     future.thenApply(HttpResponse::body).thenAccept(stringResponse -> {
-                       JsonObject response = HttpUtils.parseResponse(stringResponse);
-                       Version latestVer = new Version(response.get("tag_name").getAsString());
-                       Version currentVer = new Version(Skript.getVersion().toString());
-                       skVerColor.set(latestVer.isLargerThan(currentVer) ? "<red>" : "<green>");
+                        JsonObject response = HttpUtils.parseResponse(stringResponse);
+                        Version latestVer = new Version(response.get("tag_name").getAsString());
+                        Version currentVer = new Version(Skript.getVersion().toString());
+                        skVerColor.set(latestVer.isLargerThan(currentVer) ? "<red>" : "<green>");
                     });
-                } catch (URISyntaxException | MalformedURLException ignored) {}
+                } catch (URISyntaxException | MalformedURLException ignored) {
+                }
                 send(sender, "<gray>==============[ <gold>Skript<yellow>+ <white>Info <gray>]==============");
                 send(sender, "Skript Version: " + skVerColor + Skript.getVersion());
                 send(sender, "Server Version: <yellow>" + Bukkit.getServer().getVersion());
@@ -125,9 +138,9 @@ public class SkriptCommand implements TabExecutor {
                 send(sender, "");
                 send(sender, "Dependencies [" + dependencies.size() + "]");
                 dependencies.forEach(sender::sendMessage);
-                break;
+            }
 
-            case "addon":
+            case "addon" -> {
                 if (args.length < 3) {
                     send(sender, "Please enter an addon name.", true);
                     break;
@@ -158,41 +171,41 @@ public class SkriptCommand implements TabExecutor {
                         future.join();
 
                         future.exceptionally(ex -> {
-                            throw new RuntimeException("Error while getting the latest version of " + args[2] + ".", ex);
-                        })
+                                    throw new RuntimeException("Error while getting the latest version of " + args[2] + ".", ex);
+                                })
 
-                        .thenAccept(request -> {
-                            if (request.statusCode() != 200) {
-                                throw new RuntimeException("Got code " + request.statusCode() + " while trying to get the latest version of " + args[2] + ".");
-                            }
-                            String stringResponse = request.body();
-                            JsonObject response = HttpUtils.parseResponse(stringResponse);
-                            String name = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("name").getAsString();
-                            String link = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
-                            try {
-                                FileUtils.downloadFile(new URI(link).toURL(), new File(SkriptPlus.getInstance().getDataFolder() + "/" + name));
-                                send(sender, "Downloaded <yellow>" + args[2] + "<white>. Please restart your server.", true);
-                            } catch (MalformedURLException | URISyntaxException e) {
-                                throw new RuntimeException("Error while downloading an addon.", e);
-                            }
-                        });
+                                .thenAccept(request -> {
+                                    if (request.statusCode() != 200)
+                                        throw new RuntimeException("Got code " + request.statusCode() + " while trying to get the latest version of " + args[2] + ".");
+
+                                    String stringResponse = request.body();
+                                    JsonObject response = HttpUtils.parseResponse(stringResponse);
+                                    String name = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("name").getAsString();
+                                    String link = response.getAsJsonArray("assets").get(0).getAsJsonObject().get("browser_download_url").getAsString();
+                                    try {
+                                        FileUtils.downloadFile(new URI(link).toURL(), new File(SkriptPlus.getInstance().getDataFolder() + "/" + name));
+                                        send(sender, "Downloaded <yellow>" + args[2] + "<white>. Please restart your server.", true);
+                                    } catch (MalformedURLException | URISyntaxException e) {
+                                        throw new RuntimeException("Error while downloading an addon.", e);
+                                    }
+                                });
                     } catch (URISyntaxException | MalformedURLException e) {
                         throw new RuntimeException("Error while downloading an addon.", e);
                     }
                 }
-                break;
+            }
 
-            case "analyse":
+            // TODO needs improvements
+            case "analyse" -> {
                 if (args.length < 2) {
                     send(sender, "Please enter a script name.", true);
                     break;
                 }
-                final File script = new File("./plugins/Skript/scripts/", args[1]);
+                script = new File("./plugins/Skript/scripts/", args[1]);
                 if (!script.exists()) {
                     send(sender, "This script doesn't exist.", true);
                     break;
                 }
-
                 final Pattern regex = Pattern.compile("^\\s*(?:#.*)?$"); // checks if a line is empty or is a comment
                 List<String> lines = new ArrayList<>();
                 lines.add("Analysed by SkriptPlus.\n\n");
@@ -212,21 +225,59 @@ public class SkriptCommand implements TabExecutor {
                     future.join();
 
                     future.exceptionally(ex -> {
-                        throw new RuntimeException("Error while analysing a script.", ex);
-                    })
+                                throw new RuntimeException("Error while analysing a script.", ex);
+                            })
 
-                    .thenAccept(request -> {
-                        if (request.statusCode() != 200) {
-                            throw new RuntimeException("Got code " + request.statusCode() + " while trying to analyse a script.");
-                        }
-                        JsonObject response = HttpUtils.parseResponse(request.body());
-                        String key = response.get("key").getAsString();
-                        send(sender, "Analysed in <yellow>" + totalParseTime + "ms<white>. Click <underlined><yellow><click:open_url:" + String.format(HASTEBIN_API, key) + ">here<reset> to see the results.", true);
-                    });
+                            .thenAccept(request -> {
+                                if (request.statusCode() != 200)
+                                    throw new RuntimeException("Got code " + request.statusCode() + " while trying to analyse a script.");
+
+                                JsonObject response = HttpUtils.parseResponse(request.body());
+                                String key = response.get("key").getAsString();
+                                send(sender, "Analysed in <yellow>" + totalParseTime + "ms<white>. Click <underlined><yellow><click:open_url:" + String.format(HASTEBIN_API, key) + ">here<reset> to see the results.", true);
+                            });
 
                 } catch (IOException | URISyntaxException e) {
                     throw new RuntimeException("Error while analysing a script.", e);
                 }
+            }
+
+            case "enable", "disable", "reload" -> {
+                if (args.length < 2) {
+                    send(sender, "Please enter a script name.", true);
+                    break;
+                }
+                script = new File(args[1]);
+                if (!script.exists()) {
+                    send(sender, "This script doesn't exist.", true);
+                    break;
+                }
+                if (args[0].equalsIgnoreCase("enable")) {
+                    if (ScriptLoader.getLoadedScriptsFilter().accept(script))
+                        send(sender, "This script is already enabled.", true);
+
+                    try {
+                        // remove the prefix
+                        script = ch.njol.skript.util.FileUtils.move(script,
+                                new File(script.getParentFile(), script.getName().substring(ScriptLoader.DISABLED_SCRIPT_PREFIX_LENGTH)),
+                                false
+                        );
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error while enabling a script", e);
+                    }
+                    ScriptLoader.loadScripts(script, OpenCloseable.EMPTY);
+                } else if (args[0].equalsIgnoreCase("reload")) {
+                    if (ScriptLoader.getDisabledScriptsFilter().accept(script))
+                        break;
+
+                    Script skriptScript = ScriptLoader.getScript(script);
+
+                    if (skriptScript != null)
+                        ScriptLoader.unloadScript(skriptScript);
+
+                    ScriptLoader.loadScripts(script, OpenCloseable.EMPTY);
+                }
+            }
         }
         return true;
     }
