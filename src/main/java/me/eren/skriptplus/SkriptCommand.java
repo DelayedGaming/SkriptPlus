@@ -2,6 +2,11 @@ package me.eren.skriptplus;
 
 import ch.njol.skript.ScriptLoader;
 import ch.njol.skript.Skript;
+import ch.njol.skript.SkriptConfig;
+import ch.njol.skript.aliases.Aliases;
+import ch.njol.skript.config.Config;
+import ch.njol.skript.log.RetainingLogHandler;
+import ch.njol.skript.log.TimingLogHandler;
 import ch.njol.util.OpenCloseable;
 import com.google.gson.JsonObject;
 import me.eren.skriptplus.utils.FileUtils;
@@ -16,10 +21,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.skriptlang.skript.lang.script.Script;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.*;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
@@ -170,8 +176,8 @@ public class SkriptCommand implements TabExecutor {
                         CompletableFuture<HttpResponse<String>> future = HttpUtils.sendGetRequest(url);
                         future.join();
 
-                        future.exceptionally(ex -> {
-                                    throw new RuntimeException("Error while getting the latest version of " + args[2] + ".", ex);
+                        future.exceptionally(e -> {
+                                    throw new RuntimeException("Error while getting the latest version of " + args[2] + ".", e);
                                 })
 
                                 .thenAccept(request -> {
@@ -224,18 +230,17 @@ public class SkriptCommand implements TabExecutor {
                     CompletableFuture<HttpResponse<String>> future = HttpUtils.sendPostRequest(new URI(String.format(HASTEBIN_API, "documents")).toURL(), data);
                     future.join();
 
-                    future.exceptionally(ex -> {
-                                throw new RuntimeException("Error while analysing a script.", ex);
-                            })
+                    future.exceptionally(e -> {
+                        throw new RuntimeException("Error while analysing a script.", e);
+                    })
+                    .thenAccept(request -> {
+                        if (request.statusCode() != 200)
+                            throw new RuntimeException("Got code " + request.statusCode() + " while trying to analyse a script.");
 
-                            .thenAccept(request -> {
-                                if (request.statusCode() != 200)
-                                    throw new RuntimeException("Got code " + request.statusCode() + " while trying to analyse a script.");
-
-                                JsonObject response = HttpUtils.parseResponse(request.body());
-                                String key = response.get("key").getAsString();
-                                send(sender, "Analysed in <yellow>" + totalParseTime + "ms<white>. Click <underlined><yellow><click:open_url:" + String.format(HASTEBIN_API, key) + ">here<reset> to see the results.", true);
-                            });
+                        JsonObject response = HttpUtils.parseResponse(request.body());
+                        String key = response.get("key").getAsString();
+                        send(sender, "Analysed in <yellow>" + totalParseTime + "ms<white>. Click <underlined><yellow><click:open_url:" + String.format(HASTEBIN_API, key) + ">here<reset> to see the results.", true);
+                    });
 
                 } catch (IOException | URISyntaxException e) {
                     throw new RuntimeException("Error while analysing a script.", e);
@@ -247,35 +252,70 @@ public class SkriptCommand implements TabExecutor {
                     send(sender, "Please enter a script name.", true);
                     break;
                 }
-                script = new File(args[1]);
-                if (!script.exists()) {
+                script = ch.njol.skript.SkriptCommand.getScriptFromName(args[1]);
+                if (script == null || !script.exists()) {
                     send(sender, "This script doesn't exist.", true);
                     break;
                 }
-                if (args[0].equalsIgnoreCase("enable")) {
-                    if (ScriptLoader.getLoadedScriptsFilter().accept(script))
-                        send(sender, "This script is already enabled.", true);
-
-                    try {
-                        // remove the prefix
-                        script = ch.njol.skript.util.FileUtils.move(script,
-                                new File(script.getParentFile(), script.getName().substring(ScriptLoader.DISABLED_SCRIPT_PREFIX_LENGTH)),
-                                false
-                        );
-                    } catch (IOException e) {
-                        throw new RuntimeException("Error while enabling a script", e);
+                try (RetainingLogHandler logHandler = new RetainingLogHandler().start();
+                     TimingLogHandler timingLogHandler = new TimingLogHandler().start()) {
+                    if (args[0].equalsIgnoreCase("enable")) {
+                        if (!script.getName().startsWith("-")) {
+                           send(sender, "This script is already enabled.", true);
+                          break;
+                        }
+                        try {
+                            // remove the prefix
+                            script = ch.njol.skript.util.FileUtils.move(
+                                    script,
+                                    new File(script.getParentFile(), script.getName().substring(1)),
+                                    false
+                            );
+                        } catch (IOException e) {
+                            throw new RuntimeException("Error while enabling a script", e);
+                        }
+                        Config config = ScriptLoader.loadStructure(script);
+                        if (config == null) {
+                            send(sender, "This script cannot be enabled.", true);
+                            break;
+                        }
+                        ScriptLoader.loadScripts(Collections.singletonList(config), OpenCloseable.EMPTY);
+                    } else if (args[0].equalsIgnoreCase("reload")) {
+                        if (args[1].equalsIgnoreCase("config") || args[1].equalsIgnoreCase("all")) {
+                            try {
+                                Method method = (SkriptConfig.class).getDeclaredMethod("load");
+                                method.setAccessible(true);
+                                method.invoke(null);
+                            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                                throw new RuntimeException("Error while reloading the Skript config.", e);
+                            }
+                        }
+                        if (args[1].equalsIgnoreCase("aliases") || args[1].equalsIgnoreCase("all")) {
+                            Aliases.clear();
+                            Aliases.load();
+                            }
+                        if (!script.getName().startsWith("-")) {
+                            send(sender, "This script is disabled.", true);
+                            break;
+                        }
+                        ScriptLoader.reloadScript(script, OpenCloseable.EMPTY);
+                    } else if (args[0].equalsIgnoreCase("disable")) {
+                        if (script.getName().startsWith("-")) {
+                            send(sender, "This script is already disabled.", true);
+                            break;
+                        }
+                        ScriptLoader.unloadScript(script);
+                        try {
+                            // add prefix
+                            ch.njol.skript.util.FileUtils.move(
+                                    script,
+                                    new File(script.getParentFile(), "-" + script.getName()),
+                                    false
+                            );
+                        } catch (IOException e) {
+                            throw new RuntimeException("Error while disabling script file: " + args[0] + ".", e);
+                        }
                     }
-                    ScriptLoader.loadScripts(script, OpenCloseable.EMPTY);
-                } else if (args[0].equalsIgnoreCase("reload")) {
-                    if (ScriptLoader.getDisabledScriptsFilter().accept(script))
-                        break;
-
-                    Script skriptScript = ScriptLoader.getScript(script);
-
-                    if (skriptScript != null)
-                        ScriptLoader.unloadScript(skriptScript);
-
-                    ScriptLoader.loadScripts(script, OpenCloseable.EMPTY);
                 }
             }
         }

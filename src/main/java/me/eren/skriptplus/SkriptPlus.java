@@ -1,6 +1,7 @@
 package me.eren.skriptplus;
 
 import ch.njol.skript.Skript;
+import me.eren.skriptplus.listeners.CommandListener;
 import me.eren.skriptplus.utils.Metrics;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -25,6 +26,11 @@ public final class SkriptPlus extends JavaPlugin {
         Skript.registerAddon(this);
 
         this.getCommand("skriptplus").setExecutor(new SkriptCommand());
+        this.saveDefaultConfig();
+
+        if (this.getConfig().getBoolean("overwrite-command")) {
+            getServer().getPluginManager().registerEvents(new CommandListener(), this);
+        }
 
         // create the addon.properties file if it doesn't exist.
         if (!getDataFolder().exists() && !getDataFolder().mkdir())
