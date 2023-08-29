@@ -5,10 +5,13 @@ import ch.njol.skript.Skript;
 import ch.njol.skript.SkriptConfig;
 import ch.njol.skript.aliases.Aliases;
 import ch.njol.skript.config.Config;
+import ch.njol.skript.log.LogHandler;
+import ch.njol.skript.log.RedirectingLogHandler;
 import ch.njol.skript.log.RetainingLogHandler;
 import ch.njol.skript.log.TimingLogHandler;
 import ch.njol.util.OpenCloseable;
 import com.google.gson.JsonObject;
+import me.eren.skriptplus.listeners.CommandListener;
 import me.eren.skriptplus.utils.FileUtils;
 import me.eren.skriptplus.utils.HttpUtils;
 import me.eren.skriptplus.utils.SkriptUtils;
@@ -19,6 +22,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -81,8 +85,8 @@ public class SkriptCommand implements TabExecutor {
                         CompletableFuture<HttpResponse<String>> future = HttpUtils.sendGetRequest(url);
                         future.join();
 
-                        future.exceptionally(e -> {
-                            throw new RuntimeException("Error while getting the latest version of " + plugin + ".", e);
+                        future.exceptionally(ex -> {
+                            throw new RuntimeException("Error while getting the latest version of " + plugin + ".", ex);
                         });
 
                         future.thenAccept(request -> {
@@ -176,8 +180,8 @@ public class SkriptCommand implements TabExecutor {
                         CompletableFuture<HttpResponse<String>> future = HttpUtils.sendGetRequest(url);
                         future.join();
 
-                        future.exceptionally(e -> {
-                                    throw new RuntimeException("Error while getting the latest version of " + args[2] + ".", e);
+                        future.exceptionally(ex -> {
+                                    throw new RuntimeException("Error while getting the latest version of " + args[2] + ".", ex);
                                 })
 
                                 .thenAccept(request -> {
@@ -230,8 +234,8 @@ public class SkriptCommand implements TabExecutor {
                     CompletableFuture<HttpResponse<String>> future = HttpUtils.sendPostRequest(new URI(String.format(HASTEBIN_API, "documents")).toURL(), data);
                     future.join();
 
-                    future.exceptionally(e -> {
-                        throw new RuntimeException("Error while analysing a script.", e);
+                    future.exceptionally(ex -> {
+                        throw new RuntimeException("Error while analysing a script.", ex);
                     })
                     .thenAccept(request -> {
                         if (request.statusCode() != 200)
@@ -247,6 +251,14 @@ public class SkriptCommand implements TabExecutor {
                 }
             }
 
+            case "reload-config" -> {
+                HandlerList.unregisterAll(new CommandListener());
+                if (SkriptPlus.getInstance().getConfig().getBoolean("overwrite-command")) {
+                    Bukkit.getPluginManager().registerEvents(new CommandListener(), SkriptPlus.getInstance());
+                }
+                send(sender, "Reloaded SkriptPlus config.", true);
+            }
+
             case "enable", "disable", "reload" -> {
                 if (args.length < 2) {
                     send(sender, "Please enter a script name.", true);
@@ -257,8 +269,9 @@ public class SkriptCommand implements TabExecutor {
                     send(sender, "This script doesn't exist.", true);
                     break;
                 }
-                try (RetainingLogHandler logHandler = new RetainingLogHandler().start();
-                     TimingLogHandler timingLogHandler = new TimingLogHandler().start()) {
+                boolean isCustomReload = SkriptPlus.getInstance().getConfig().getBoolean("custom-errors");
+                try (LogHandler logHandler = (isCustomReload ? new RetainingLogHandler() : new RedirectingLogHandler(sender, "")).start();
+                     TimingLogHandler timingHandler = new TimingLogHandler().start()) {
                     if (args[0].equalsIgnoreCase("enable")) {
                         if (!script.getName().startsWith("-")) {
                            send(sender, "This script is already enabled.", true);
@@ -294,7 +307,7 @@ public class SkriptCommand implements TabExecutor {
                             Aliases.clear();
                             Aliases.load();
                             }
-                        if (!script.getName().startsWith("-")) {
+                        if (script.getName().startsWith("-")) {
                             send(sender, "This script is disabled.", true);
                             break;
                         }

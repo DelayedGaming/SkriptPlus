@@ -26,20 +26,17 @@ public final class SkriptPlus extends JavaPlugin {
         Skript.registerAddon(this);
 
         this.getCommand("skriptplus").setExecutor(new SkriptCommand());
-        this.saveDefaultConfig();
 
+        this.saveDefaultConfig();
         if (this.getConfig().getBoolean("overwrite-command")) {
             getServer().getPluginManager().registerEvents(new CommandListener(), this);
         }
 
         // create the addon.properties file if it doesn't exist.
-        if (!getDataFolder().exists() && !getDataFolder().mkdir())
-            throw new RuntimeException("Data directory doesn't exist and can't be created.");
-
         final File properties = new File(getDataFolder(), "addon.properties");
         try {
             if (!properties.exists() && !properties.createNewFile())
-                throw new RuntimeException("addon.properties doesn't exist but can't be created.");
+                throw new RuntimeException("addon.properties doesn't exist and can't be created.");
             Files.copy(getResource("addon.properties"), properties.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new RuntimeException(e);
