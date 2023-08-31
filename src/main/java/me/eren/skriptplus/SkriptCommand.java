@@ -57,7 +57,7 @@ public class SkriptCommand implements TabExecutor {
 
         switch (args[0].toLowerCase()) {
             case "backup-scripts" -> {
-                FileUtils.copyDirectory("./plugins/Skript/scripts", ".plugins/Skript/scripts-backup-" + getCurrentDate());
+                FileUtils.copyDirectory("./plugins/Skript/scripts", "./plugins/Skript/scripts-backup-" + getCurrentDate());
                 send(sender, "Created a backup in <yellow>\"plugins/Skript/scripts-backup-" + getCurrentDate() + "\"", true);
             }
 
@@ -251,6 +251,9 @@ public class SkriptCommand implements TabExecutor {
                 }
             }
 
+            case "list" -> FileUtils.getFileTree("./plugins/Skript/scripts/")
+                    .forEach(message -> send(sender, message));
+
             case "reload-config" -> {
                 HandlerList.unregisterAll(new CommandListener());
                 if (SkriptPlus.getInstance().getConfig().getBoolean("overwrite-command")) {
@@ -306,7 +309,7 @@ public class SkriptCommand implements TabExecutor {
                         if (args[1].equalsIgnoreCase("aliases") || args[1].equalsIgnoreCase("all")) {
                             Aliases.clear();
                             Aliases.load();
-                            }
+                        }
                         if (script.getName().startsWith("-")) {
                             send(sender, "This script is disabled.", true);
                             break;

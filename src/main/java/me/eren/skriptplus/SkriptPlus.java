@@ -55,7 +55,7 @@ public final class SkriptPlus extends JavaPlugin {
 
     public static Properties getAddonProperties() {
         if (!ADDON_PROPERTIES.containsKey("skript")) {
-            File file = new File(SkriptPlus.getInstance().getDataFolder(), "/SkriptPlus/addon.properties");
+            File file = new File(SkriptPlus.getInstance().getDataFolder(), "addon.properties");
             try (FileInputStream stream = new FileInputStream(file)) {
                 ADDON_PROPERTIES.load(stream);
             } catch (IOException e) {

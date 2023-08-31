@@ -2,6 +2,6 @@
 # Disable for vanilla error messages.
 custom-errors: true
 
-# If set to true, this overwrites the /sk and /skript command.
+# If set to true, SkriptPlus will overwrite the /sk and /skript command.
 # You can still use /skript:sk while this is enabled.
 overwrite-command: true
