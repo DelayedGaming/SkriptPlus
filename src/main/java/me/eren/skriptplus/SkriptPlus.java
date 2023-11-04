@@ -25,7 +25,7 @@ public final class SkriptPlus extends JavaPlugin {
         getLogger().info("Enabled SkriptPlus v" + getDescription().getVersion());
         Skript.registerAddon(this);
 
-        this.getCommand("skriptplus").setExecutor(new SkriptCommand());
+        this.getCommand("skriptplus").setExecutor(new SkpCommand());
 
         this.saveDefaultConfig();
         if (this.getConfig().getBoolean("overwrite-command")) {
